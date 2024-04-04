@@ -8,6 +8,7 @@ pub const c = @cImport({
     @cInclude("freetype/ftstroke.h");
     @cInclude("freetype/fttrigon.h");
     @cInclude("freetype/ftsynth.h");
+    @cInclude("freetype/ftmm.h");
 });
 
 pub const Affine23 = c.FT_Affine23;
@@ -769,6 +770,32 @@ pub const Face = struct {
 
     pub fn isTricky(self: Face) bool {
         return c.FT_IS_TRICKY(self.handle);
+    }
+
+    pub fn getMultipleMasters(self: Face) !MultipleMasters {
+        var handle: [*c]c.FT_MM_Var = undefined;
+        try intToError(c.FT_Get_MM_Var(self.handle, &handle));
+        return .{ .handle = handle };
+    }
+};
+
+pub const MultipleMasters = struct {
+    handle: *c.FT_MM_Var,
+
+    pub fn deinit(self: MultipleMasters, library: Library) void {
+        intToError(c.FT_Done_MM_Var(library.handle, self.handle)) catch @panic("impossible");
+    }
+
+    pub fn axes(self: MultipleMasters) []const VarAxis {
+        return @as([*]const VarAxis, @ptrCast(self.handle.*.axis))[0..self.handle.*.num_axis];
+    }
+};
+
+pub const VarAxis = struct {
+    handle: c.FT_Var_Axis,
+
+    pub fn name(self: *const VarAxis) [:0]const u8 {
+        return std.mem.span(self.handle.name);
     }
 };
 
